@@ -1,0 +1,211 @@
+local MarketplaceService = game:GetService("MarketplaceService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+local autoSellActive = false
+local autoSellDelay = 3
+
+local selectedSeeds = {}
+local autoBuyActive = false
+local autoFarmActive = false
+
+-- Get game name
+local gameName = "Game"
+pcall(function()
+    local info = MarketplaceService:GetProductInfo(game.PlaceId)
+    gameName = info.Name
+end)
+
+-- Load Rayfield
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- Create Window
+local Window = Rayfield:CreateWindow({
+   Name = "Syntric | " .. gameName,
+   Icon = 0,
+   LoadingTitle = "Syntric",
+   LoadingSubtitle = "by Mytril",
+   Theme = "Default",
+   DisableRayfieldPrompts = false,
+   DisableBuildWarnings = false,
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = nil,
+      FileName = "Syntric Hub"
+   },
+   Discord = {
+      Enabled = false,
+      Invite = "noinvitelink",
+      RememberJoins = true
+   },
+   KeySystem = false,
+   KeySettings = {
+      Title = "Untitled",
+      Subtitle = "Key System",
+      Note = "No method of obtaining the key is provided",
+      FileName = "Key",
+      SaveKey = true,
+      GrabKeyFromSite = false,
+      Key = {"Hello"}
+   }
+})
+
+-- Notification
+Rayfield:Notify({
+   Title = "Loading Successful!",
+   Content = "Syntric Loaded Successfully by Mytril",
+   Duration = 6.5,
+   Image = 4483362458,
+})
+
+-- Tabs & Sections
+local Main = Window:CreateTab("Main", 4483362458)
+local Misc = Window:CreateTab("Misc", 4483362458)
+local AutoFarms = Main:CreateSection("Auto Farm")
+local AutoBuy = Misc:CreateSection("Auto Buy")
+
+-- Auto Farm Toggle
+Main:CreateToggle({
+   Name = "Auto Farm",
+   CurrentValue = false,
+   Flag = "AutoFarmToggle",
+   Callback = function(Value)
+      autoFarmActive = Value
+
+      if Value then
+         coroutine.wrap(function()
+            while autoFarmActive do
+               -- Replace with actual harvesting logic
+               local harvestEvent = ReplicatedStorage:FindFirstChild("GameEvents") and ReplicatedStorage.GameEvents:FindFirstChild("Harvest")
+               if harvestEvent then
+                   harvestEvent:FireServer()
+               end
+               task.wait(1)
+            end
+         end)()
+      end
+   end,
+})
+
+-- Auto Sell Toggle
+Main:CreateToggle({
+   Name = "Auto Sell",
+   CurrentValue = false,
+   Flag = "AutoSellToggle",
+   Callback = function(Value)
+       autoSellActive = Value
+
+       if Value then
+           coroutine.wrap(function()
+               while autoSellActive do
+                   local character = player.Character or player.CharacterAdded:Wait()
+                   local hrp = character:WaitForChild("HumanoidRootPart")
+                   local originalPosition = hrp.Position
+
+                   local success, err = pcall(function()
+                       local npcFolder = workspace:FindFirstChild("NPCS")
+                       local npc = npcFolder and npcFolder:FindFirstChild("Sell Stands")
+
+                       if npc then
+                           local part = npc.PrimaryPart or npc:FindFirstChildWhichIsA("BasePart")
+                           if part then
+                               hrp.CFrame = CFrame.new(part.Position + Vector3.new(0, 5, 0))
+                               task.wait(0.1)
+
+                               local sellEvent = ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("Sell_Inventory")
+                               for i = 1, 3 do
+                                   if not autoSellActive then break end
+                                   sellEvent:FireServer()
+                                   task.wait(0.05)
+                               end
+
+                               hrp.CFrame = CFrame.new(originalPosition)
+                           else
+                               warn("No valid BasePart in Sell Stands.")
+                           end
+                       else
+                           warn("Sell Stands NPC not found.")
+                       end
+                   end)
+
+                   if not success then
+                       warn("Auto Sell Error:", err)
+                   end
+
+                   task.wait(autoSellDelay)
+               end
+           end)()
+       end
+   end,
+})
+
+-- Auto Buy Toggle
+
+Misc:CreateToggle({
+   Name = "Enable Auto Buy Seeds",
+   Flag = "EnableAutoBuySeeds",
+   Default = false,
+   Callback = function(state)
+       autoBuyEnabled = state
+       while autoBuyEnabled and selectedSeeds do
+           game:GetService("ReplicatedStorage"):WaitForChild("GameEvents"):WaitForChild("BuySeedStock"):FireServer(selectedSeeds)
+           wait(1) -- Add a delay to prevent spamming the server
+       end
+   end,
+})
+
+Misc:CreateDropdown({
+   Name = "Auto Buy Seeds",
+   Options = {"Carrot", "Strawberry", "Blueberry", "Orange Tulip", "Tomato", "Corn", "Raspberry", "Daffodil", "Watermelon", "Pumpkin", "Apple", "Bamboo", "Coconut", "Cactus", "Dragon Fruit", "Mango", "Grape", "Mushroom"},
+   CurrentOption = {},
+   MultipleOptions = false,
+   Flag = "AutoBuySeeds",
+   Callback = function(seed)
+       selectedSeeds = seed
+   end,
+})
+
+-- Auto Buy gear toggle
+
+local AutoBuyGear = Misc:CreateToggle({
+   Name = "Auto Buy Gear",
+   CurrentValue = false,
+   Flag = "Toggle1", 
+   Callback = function(Value)
+    --Add here
+   end,
+})
+
+local SeedsUi = Misc:CreateToggle({
+   Name = "Seed Shop Ui",
+   CurrentValue = false,
+   Flag = "Toggle1", 
+   Callback = function(Value)
+       local gui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("Seed_Shop")
+       gui.Enabled = Value
+   end,
+})
+
+local GearUi = Misc:CreateToggle({
+   Name = "Gear Shop Ui",
+   CurrentValue = false,
+   Flag = "Toggle1", 
+   Callback = function(Value)
+    local gui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("Gear_Shop")
+       gui.Enabled = Value
+   end,
+})
+
+-- Dropdowns
+Main:CreateDropdown({
+   Name = "Auto Sell Delay (Seconds)",
+   Options = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+   CurrentOption = {"3"},
+   MultipleOptions = false,
+   Flag = "AutoSellDelayDropdown",
+   Callback = function(Options)
+      autoSellDelay = tonumber(Options[1]) or 3
+   end,
+})
+
