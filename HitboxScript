@@ -1,0 +1,245 @@
+-- Load Rayfield UI Library
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- Create Main Window
+local Window = Rayfield:CreateWindow({
+   Name = "Syntric",
+   Icon = 112930952488233,
+   LoadingTitle = "Syntric",
+   LoadingSubtitle = "by Mytril",
+   Theme = "Default",
+   ConfigurationSaving = {
+      Enabled = true,
+      FileName = "Syntric Hub"
+   },
+   Discord = {
+      Enabled = false,
+      Invite = "noinvitelink",
+      RememberJoins = true
+   },
+   KeySystem = false,
+})
+
+Rayfield:Notify({
+   Title = "Loading Successful!",
+   Content = "Loaded successful by Mytril",
+   Duration = 6.5,
+   Image = 112930952488233,
+})
+
+-- Variables
+local hitboxSize = 5
+local transparency = 0.5
+local running = true
+local espEnabled = false
+local tracersEnabled = false
+local rainbowEnabled = false
+local espColor = Color3.fromRGB(255, 0, 0)
+local highlights = {}
+
+-- Create Tabs
+local Home = Window:CreateTab("Home", 4483362458)
+local Hitbox = Window:CreateTab("Hitbox", 4483362458)
+local EspTab = Window:CreateTab("Esp", 4483362458)
+local PlayerTab = Window:CreateTab("Player", 4483362458)
+
+-- Home Tab
+Home:CreateSection("Links")
+
+-- Hitbox Tab
+Hitbox:CreateSection("Hitbox")
+Hitbox:CreateInput({
+    Name = "Manual Hitbox Size",
+    PlaceholderText = "Enter size (1-300)",
+    RemoveTextAfterFocusLost = true,
+    Callback = function(Text)
+        local number = tonumber(Text)
+        if number and number >= 1 and number <= 300 then
+            hitboxSize = number
+        end
+    end,
+})
+Hitbox:CreateInput({
+    Name = "Transparency (0-100%)",
+    PlaceholderText = "Enter percentage",
+    RemoveTextAfterFocusLost = true,
+    Callback = function(Text)
+        local number = tonumber(Text)
+        if number and number >= 0 and number <= 100 then
+            transparency = number / 100
+        end
+    end,
+})
+
+-- Apply Hitbox Loop
+task.spawn(function()
+    while running do
+        for _, player in pairs(game.Players:GetPlayers()) do
+            if player ~= game.Players.LocalPlayer and player.Character then
+                local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    hrp.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
+                    hrp.Transparency = transparency
+                    hrp.Material = Enum.Material.ForceField
+                    hrp.CanCollide = false
+                end
+            end
+        end
+        task.wait(0.5)
+    end
+end)
+
+-- ESP Tab
+EspTab:CreateSection("Esp")
+
+local function hsvToRgb(h)
+    return Color3.fromHSV(h % 1, 1, 1)
+end
+
+local function clearESP()
+    for _, data in pairs(highlights) do
+        if data.Highlight then data.Highlight:Destroy() end
+        if data.Tracer then data.Tracer:Remove() end
+    end
+    highlights = {}
+end
+
+local function addESP(player)
+    if player == game.Players.LocalPlayer then return end
+    if not player.Character then return end
+
+    local highlight = Instance.new("Highlight")
+    highlight.Adornee = player.Character
+    highlight.FillTransparency = 0.5
+    highlight.OutlineTransparency = 0
+    highlight.FillColor = espColor
+    highlight.OutlineColor = Color3.new(0, 0, 0)
+    highlight.Parent = game.CoreGui
+
+    local tracer
+    if tracersEnabled then
+        tracer = Drawing.new("Line")
+        tracer.Thickness = 2
+        tracer.Color = espColor
+        tracer.ZIndex = 2
+        tracer.Visible = true
+    end
+
+    highlights[player] = {Highlight = highlight, Tracer = tracer}
+end
+
+-- ESP Loop
+task.spawn(function()
+    while true do
+        if espEnabled then
+            for _, player in pairs(game.Players:GetPlayers()) do
+                if player ~= game.Players.LocalPlayer and player.Character and not highlights[player] then
+                    addESP(player)
+                end
+            end
+
+            local currentColor = rainbowEnabled and hsvToRgb(tick() * 0.2 % 1) or espColor
+
+            for player, data in pairs(highlights) do
+                if data.Highlight then
+                    data.Highlight.FillColor = currentColor
+                end
+                if data.Tracer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                    local pos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
+                    data.Tracer.From = Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y)
+                    data.Tracer.To = Vector2.new(pos.X, pos.Y)
+                    data.Tracer.Visible = onScreen
+                    data.Tracer.Color = currentColor
+                end
+            end
+        else
+            clearESP()
+        end
+        task.wait(0.05)
+    end
+end)
+
+-- ESP UI Controls
+EspTab:CreateToggle({
+    Name = "Enable ESP",
+    CurrentValue = false,
+    Callback = function(Value)
+        espEnabled = Value
+        if not Value then clearESP() end
+    end,
+})
+EspTab:CreateColorPicker({
+    Name = "ESP Color",
+    Color = espColor,
+    Callback = function(Value)
+        espColor = Value
+        rainbowEnabled = false
+    end,
+})
+EspTab:CreateToggle({
+    Name = "Enable Tracers",
+    CurrentValue = false,
+    Callback = function(Value)
+        tracersEnabled = Value
+        clearESP()
+    end,
+})
+EspTab:CreateToggle({
+    Name = "Rainbow ESP",
+    CurrentValue = false,
+    Callback = function(Value)
+        rainbowEnabled = Value
+    end,
+})
+
+-- Player Tab
+PlayerTab:CreateSection("Player Mods")
+
+PlayerTab:CreateSlider({
+    Name = "WalkSpeed",
+    Range = {16, 300},
+    Increment = 1,
+    CurrentValue = 16,
+    Callback = function(Value)
+        game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = Value
+    end,
+})
+
+PlayerTab:CreateSlider({
+    Name = "JumpPower",
+    Range = {50, 300},
+    Increment = 1,
+    CurrentValue = 50,
+    Callback = function(Value)
+        game.Players.LocalPlayer.Character.Humanoid.JumpPower = Value
+    end,
+})
+
+PlayerTab:CreateSlider({
+    Name = "Field of View",
+    Range = {30, 120},
+    Increment = 1,
+    CurrentValue = 70,
+    Callback = function(Value)
+        game.Workspace.CurrentCamera.FieldOfView = Value
+    end,
+})
+
+local infJumpEnabled = false
+
+PlayerTab:CreateToggle({
+    Name = "Infinite Jump",
+    CurrentValue = false,
+    Callback = function(Value)
+        infJumpEnabled = Value
+    end,
+})
+
+game:GetService("UserInputService").JumpRequest:Connect(function()
+    if infJumpEnabled then
+        local char = game.Players.LocalPlayer.Character
+        if char and char:FindFirstChildOfClass("Humanoid") then
+            char:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+        end
+    end
+end)
