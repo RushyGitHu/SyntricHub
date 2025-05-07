@@ -1,7 +1,11 @@
-local MarketplaceService = game:GetService("MarketplaceService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+-- Auto Buy Seeds Script with GUI
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local MarketplaceService = game:GetService("MarketplaceService")
+
 local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
 
 local autoSellActive = false
 local autoSellDelay = 3
@@ -141,16 +145,23 @@ Main:CreateToggle({
 })
 
 -- Auto Buy Toggle
-
+local autoBuyEnabled = false
 Misc:CreateToggle({
    Name = "Enable Auto Buy Seeds",
+   CurrentValue = false,
    Flag = "EnableAutoBuySeeds",
-   Default = false,
-   Callback = function(state)
-       autoBuyEnabled = state
-       while autoBuyEnabled and selectedSeeds do
-           game:GetService("ReplicatedStorage"):WaitForChild("GameEvents"):WaitForChild("BuySeedStock"):FireServer(selectedSeeds)
-           wait(1) -- Add a delay to prevent spamming the server
+   Callback = function(Value)
+       autoBuyEnabled = Value
+       if Value then
+           coroutine.wrap(function()
+               while autoBuyEnabled do
+                   if selectedSeeds then
+                       game:GetService("ReplicatedStorage"):WaitForChild("GameEvents"):WaitForChild("BuySeedStock"):FireServer(selectedSeeds)
+                       task.wait(0.01) -- 0.01 second delay between purchases
+                   end
+                   task.wait(0.5) -- Additional delay between cycles
+               end
+           end)()
        end
    end,
 })
@@ -167,7 +178,6 @@ Misc:CreateDropdown({
 })
 
 -- Auto Buy gear toggle
-
 local AutoBuyGear = Misc:CreateToggle({
    Name = "Auto Buy Gear",
    CurrentValue = false,
@@ -208,4 +218,3 @@ Main:CreateDropdown({
       autoSellDelay = tonumber(Options[1]) or 3
    end,
 })
-
