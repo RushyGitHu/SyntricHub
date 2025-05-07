@@ -14,6 +14,7 @@ local autoSellDelay = 3
 local selectedSeeds = {}
 local autoBuyActive = false
 local autoFarmActive = false
+local buyDelay = 0.01 -- Delay between purchases
 
 -- Get game name
 local gameName = "Game"
@@ -189,7 +190,23 @@ Main:CreateToggle({
    end,
 })
 
--- Auto Buy Toggle
+-- Improved Auto Buy System
+local function buySeeds()
+    if not autoBuyActive or #selectedSeeds == 0 then return end
+    
+    for _, seed in ipairs(selectedSeeds) do
+        if not autoBuyActive then break end
+        local success, err = pcall(function()
+            game:GetService("ReplicatedStorage"):WaitForChild("GameEvents"):WaitForChild("BuySeedStock"):FireServer(seed)
+        end)
+        if not success then
+            warn("Failed to buy seed:", seed, "Error:", err)
+        end
+        wait(buyDelay)
+    end
+end
+
+-- Auto Buy Toggle with improved functionality
 Misc:CreateToggle({
    Name = "Enable Auto Buy Seeds",
    Flag = "EnableAutoBuySeeds",
@@ -199,19 +216,15 @@ Misc:CreateToggle({
        if state then
            coroutine.wrap(function()
                while autoBuyActive do
-                   for _, seed in ipairs(selectedSeeds) do
-                       if not autoBuyActive then break end
-                       game:GetService("ReplicatedStorage"):WaitForChild("GameEvents"):WaitForChild("BuySeedStock"):FireServer(seed)
-                       wait(0.01)
-                   end
-                   wait(1)
+                   buySeeds()
+                   wait(1) -- Wait 1 second before next buying cycle
                end
            end)()
        end
    end,
 })
 
--- Seed Selection Dropdown
+-- Seed Selection Dropdown with improved options
 Misc:CreateDropdown({
    Name = "Auto Buy Seeds",
    Options = {"Carrot", "Strawberry", "Blueberry", "Orange", "Tulip", "Tomato", "Corn", 
@@ -222,6 +235,27 @@ Misc:CreateDropdown({
    Flag = "AutoBuySeeds",
    Callback = function(seeds)
        selectedSeeds = seeds
+       if #seeds > 0 then
+           Rayfield:Notify({
+               Title = "Seeds Selected",
+               Content = "Selected " .. #seeds .. " seeds for auto-buying",
+               Duration = 3,
+               Image = 4483362458,
+           })
+       end
+   end,
+})
+
+-- Buy Delay Slider
+Misc:CreateSlider({
+   Name = "Buy Delay (seconds)",
+   Range = {0.01, 1},
+   Increment = 0.01,
+   Suffix = "s",
+   CurrentValue = 0.01,
+   Flag = "BuyDelaySlider",
+   Callback = function(Value)
+       buyDelay = Value
    end,
 })
 
@@ -374,37 +408,6 @@ DropdownButton.MouseButton1Click:Connect(function()
         DropdownFrame.Size = UDim2.new(0.9, 0, 0, 0)
     end
 end)
-
--- Buy function
-local function buySeeds()
-    for _, seed in ipairs(selectedSeeds) do
-        game:GetService("ReplicatedStorage"):WaitForChild("GameEvents"):WaitForChild("BuySeedStock"):FireServer(seed)
-        wait(0.01) -- 0.01 second delay between purchases
-    end
-end
-
--- Auto buy loop
-local autoBuyConnection
-local function toggleAutoBuy()
-    autoBuyActive = not autoBuyActive
-    ToggleButton.Text = "Auto Buy: " .. (autoBuyActive and "ON" or "OFF")
-    ToggleButton.BackgroundColor3 = autoBuyActive and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(60, 60, 60)
-    
-    if autoBuyActive then
-        autoBuyConnection = RunService.Heartbeat:Connect(function()
-            if #selectedSeeds > 0 then
-                buySeeds()
-            end
-        end)
-    else
-        if autoBuyConnection then
-            autoBuyConnection:Disconnect()
-        end
-    end
-end
-
--- Connect toggle button
-ToggleButton.MouseButton1Click:Connect(toggleAutoBuy)
 
 -- UI Toggle
 local isVisible = true
