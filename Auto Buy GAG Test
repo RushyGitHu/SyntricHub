@@ -1,10 +1,16 @@
-
+-- Auto Buy Seeds Script with GUI
 local Players = game:GetService("Players")
-local player = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local MarketplaceService = game:GetService("MarketplaceService")
 
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- Variables
 local autoSellActive = false
 local autoSellDelay = 3
-
 local selectedSeeds = {}
 local autoBuyActive = false
 local autoFarmActive = false
@@ -115,7 +121,6 @@ Main:CreateToggle({
                         if fruitPart then
                            hrp.CFrame = CFrame.new(fruitPart.Position + Vector3.new(0, 5, 0))
 
-                           -- spam E while near the fruit
                            while autoFarmActive and (hrp.Position - fruitPart.Position).Magnitude < 20 do
                               virtualInput:SendKeyEvent(true, Enum.KeyCode.E, false, game)
                               task.wait(0.01)
@@ -185,42 +190,52 @@ Main:CreateToggle({
 })
 
 -- Auto Buy Toggle
-
 Misc:CreateToggle({
    Name = "Enable Auto Buy Seeds",
    Flag = "EnableAutoBuySeeds",
    Default = false,
    Callback = function(state)
-       autoBuyEnabled = state
-       while autoBuyEnabled and selectedSeeds do
-           game:GetService("ReplicatedStorage"):WaitForChild("GameEvents"):WaitForChild("BuySeedStock"):FireServer(selectedSeeds)
-           wait(1) -- Add a delay to prevent spamming the server
+       autoBuyActive = state
+       if state then
+           coroutine.wrap(function()
+               while autoBuyActive do
+                   for _, seed in ipairs(selectedSeeds) do
+                       if not autoBuyActive then break end
+                       game:GetService("ReplicatedStorage"):WaitForChild("GameEvents"):WaitForChild("BuySeedStock"):FireServer(seed)
+                       wait(0.01)
+                   end
+                   wait(1)
+               end
+           end)()
        end
    end,
 })
 
+-- Seed Selection Dropdown
 Misc:CreateDropdown({
    Name = "Auto Buy Seeds",
-   Options = {"Carrot", "Strawberry", "Blueberry", "Orange Tulip", "Tomato", "Corn", "Raspberry", "Daffodil", "Watermelon", "Pumpkin", "Apple", "Bamboo", "Coconut", "Cactus", "Dragon Fruit", "Mango", "Grape", "Mushroom"},
+   Options = {"Carrot", "Strawberry", "Blueberry", "Orange", "Tulip", "Tomato", "Corn", 
+              "Raspberry", "Daffodil", "Watermelon", "Pumpkin", "Apple", "Bamboo", 
+              "Coconut", "Cactus", "Dragon Fruit", "Mango", "Grape", "Mushroom", "Pepper"},
    CurrentOption = {},
-   MultipleOptions = false,
+   MultipleOptions = true,
    Flag = "AutoBuySeeds",
-   Callback = function(seed)
-       selectedSeeds = seed
+   Callback = function(seeds)
+       selectedSeeds = seeds
    end,
 })
 
--- Auto Buy gear toggle
-
+-- Auto Buy Gear Toggle
 local AutoBuyGear = Misc:CreateToggle({
    Name = "Auto Buy Gear",
    CurrentValue = false,
    Flag = "Toggle1", 
    Callback = function(Value)
-    --Add Here For Auto Buy Gear
+       -- Add Auto Buy Gear functionality here
    end,
 })
 
+-- UI Toggles
 local SeedsUi = Misc:CreateToggle({
    Name = "Seed Shop Ui",
    CurrentValue = false,
@@ -236,12 +251,12 @@ local GearUi = Misc:CreateToggle({
    CurrentValue = false,
    Flag = "Toggle1", 
    Callback = function(Value)
-    local gui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("Gear_Shop")
+       local gui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("Gear_Shop")
        gui.Enabled = Value
    end,
 })
 
--- Dropdowns
+-- Auto Sell Delay Dropdown
 Main:CreateDropdown({
    Name = "Auto Sell Delay (Seconds)",
    Options = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
@@ -253,3 +268,218 @@ Main:CreateDropdown({
    end,
 })
 
+-- Create GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "AutoBuyGui"
+ScreenGui.Parent = playerGui
+
+-- Create main frame
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 200, 0, 150)
+Frame.Position = UDim2.new(0.8, 0, 0.5, 0)
+Frame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+Frame.BorderSizePixel = 0
+Frame.Parent = ScreenGui
+
+-- Create title bar for dragging
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 25)
+TitleBar.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+TitleBar.BorderSizePixel = 0
+TitleBar.Parent = Frame
+
+-- Create title text
+local TitleText = Instance.new("TextLabel")
+TitleText.Size = UDim2.new(1, 0, 1, 0)
+TitleText.BackgroundTransparency = 1
+TitleText.Text = "Auto Buy Seeds"
+TitleText.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleText.TextSize = 14
+TitleText.Font = Enum.Font.GothamBold
+TitleText.Parent = TitleBar
+
+-- Create dropdown button
+local DropdownButton = Instance.new("TextButton")
+DropdownButton.Size = UDim2.new(0.9, 0, 0, 30)
+DropdownButton.Position = UDim2.new(0.05, 0, 0.2, 0)
+DropdownButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+DropdownButton.Text = "Select Seeds"
+DropdownButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+DropdownButton.Parent = Frame
+
+-- Create dropdown frame
+local DropdownFrame = Instance.new("Frame")
+DropdownFrame.Size = UDim2.new(0.9, 0, 0, 0)
+DropdownFrame.Position = UDim2.new(0.05, 0, 0.4, 0)
+DropdownFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+DropdownFrame.BorderSizePixel = 0
+DropdownFrame.Visible = false
+DropdownFrame.Parent = Frame
+
+-- Create ScrollingFrame for dropdown items
+local ScrollingFrame = Instance.new("ScrollingFrame")
+ScrollingFrame.Size = UDim2.new(1, 0, 1, 0)
+ScrollingFrame.BackgroundTransparency = 1
+ScrollingFrame.BorderSizePixel = 0
+ScrollingFrame.ScrollBarThickness = 6
+ScrollingFrame.Parent = DropdownFrame
+
+-- Create UIListLayout for dropdown items
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Parent = ScrollingFrame
+UIListLayout.Padding = UDim.new(0, 2)
+
+-- Create toggle button
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Size = UDim2.new(0.9, 0, 0, 30)
+ToggleButton.Position = UDim2.new(0.05, 0, 0.8, 0)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+ToggleButton.Text = "Auto Buy: OFF"
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.Parent = Frame
+
+-- Seed options
+local seeds = {
+    "Carrot", "Strawberry", "Blueberry", "Orange", "Tulip", "Tomato", "Corn",
+    "Raspberry", "Daffodil", "Watermelon", "Pumpkin", "Apple", "Bamboo",
+    "Coconut", "Cactus", "Dragon Fruit", "Mango", "Grape", "Mushroom", "Pepper"
+}
+
+-- Create dropdown items
+for _, seed in ipairs(seeds) do
+    local ItemButton = Instance.new("TextButton")
+    ItemButton.Size = UDim2.new(1, 0, 0, 25)
+    ItemButton.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+    ItemButton.Text = seed
+    ItemButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ItemButton.Parent = ScrollingFrame
+    
+    ItemButton.MouseButton1Click:Connect(function()
+        if table.find(selectedSeeds, seed) then
+            table.remove(selectedSeeds, table.find(selectedSeeds, seed))
+            ItemButton.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+        else
+            table.insert(selectedSeeds, seed)
+            ItemButton.BackgroundColor3 = Color3.fromRGB(0, 120, 0)
+        end
+    end)
+end
+
+-- Toggle dropdown
+DropdownButton.MouseButton1Click:Connect(function()
+    DropdownFrame.Visible = not DropdownFrame.Visible
+    if DropdownFrame.Visible then
+        DropdownFrame.Size = UDim2.new(0.9, 0, 0, 200)
+    else
+        DropdownFrame.Size = UDim2.new(0.9, 0, 0, 0)
+    end
+end)
+
+-- Buy function
+local function buySeeds()
+    for _, seed in ipairs(selectedSeeds) do
+        game:GetService("ReplicatedStorage"):WaitForChild("GameEvents"):WaitForChild("BuySeedStock"):FireServer(seed)
+        wait(0.01) -- 0.01 second delay between purchases
+    end
+end
+
+-- Auto buy loop
+local autoBuyConnection
+local function toggleAutoBuy()
+    autoBuyActive = not autoBuyActive
+    ToggleButton.Text = "Auto Buy: " .. (autoBuyActive and "ON" or "OFF")
+    ToggleButton.BackgroundColor3 = autoBuyActive and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(60, 60, 60)
+    
+    if autoBuyActive then
+        autoBuyConnection = RunService.Heartbeat:Connect(function()
+            if #selectedSeeds > 0 then
+                buySeeds()
+            end
+        end)
+    else
+        if autoBuyConnection then
+            autoBuyConnection:Disconnect()
+        end
+    end
+end
+
+-- Connect toggle button
+ToggleButton.MouseButton1Click:Connect(toggleAutoBuy)
+
+-- UI Toggle
+local isVisible = true
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.RightShift then
+        isVisible = not isVisible
+        ScreenGui.Enabled = isVisible
+    end
+end)
+
+-- Make frame draggable (works for both PC and Mobile)
+local dragging
+local dragInput
+local dragStart
+local startPos
+
+local function update(input)
+    local delta = input.Position - dragStart
+    Frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+-- Handle touch input for mobile
+local function onTouchBegan(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = Frame.Position
+    end
+end
+
+local function onTouchEnded()
+    dragging = false
+end
+
+local function onTouchMoved(input)
+    if dragging and input.UserInputType == Enum.UserInputType.Touch then
+        update(input)
+    end
+end
+
+-- Connect touch events
+TitleBar.InputBegan:Connect(onTouchBegan)
+TitleBar.InputEnded:Connect(onTouchEnded)
+TitleBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+-- Connect mouse events
+TitleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = Frame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+TitleBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        update(input)
+    end
+end)
+
+-- Initial message
+print("Auto Buy Seeds GUI loaded! Press RightShift to toggle visibility.")
