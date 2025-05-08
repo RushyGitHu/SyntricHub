@@ -1,0 +1,187 @@
+-- Roblox ESP GUI Script for Specific Folders (Optimized & Draggable)
+
+local folders = {
+    "NightEnemies",
+    "Ore",
+    "RuntimeEnemies",
+    "RuntimeEntities",
+    "RuntimeItems"
+}
+
+local function isModelName(name)
+    name = name:lower()
+    return name:find("model") or name:sub(1, 5) == "model"
+end
+
+local player = game:GetService("Players").LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- Create GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ESP_GUI"
+ScreenGui.Parent = playerGui
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 220, 0, 40 + #folders * 35)
+MainFrame.Position = UDim2.new(0, 10, 0, 10)
+MainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+MainFrame.Active = true
+MainFrame.Draggable = false -- We'll handle dragging for mobile
+MainFrame.Parent = ScreenGui
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.Position = UDim2.new(0, 0, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "ESP GUI"
+Title.TextColor3 = Color3.new(1,1,1)
+Title.TextScaled = true
+Title.Font = Enum.Font.SourceSansBold
+Title.Parent = MainFrame
+
+-- Draggable logic (works for mouse and touch)
+local dragging, dragInput, dragStart, startPos
+
+local function updateInput(input)
+    local delta = input.Position - dragStart
+    MainFrame.Position = UDim2.new(
+        MainFrame.Position.X.Scale, MainFrame.Position.X.Offset + delta.X,
+        MainFrame.Position.Y.Scale, MainFrame.Position.Y.Offset + delta.Y
+    )
+end
+
+MainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+MainFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+game:GetService("UserInputService").InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        updateInput(input)
+    end
+end)
+
+-- ESP logic
+local toggles = {}
+local espObjects = {}
+
+local colorMap = {
+    NightEnemies = Color3.fromRGB(255, 0, 0),
+    Ore = Color3.fromRGB(0,255,255),
+    RuntimeEnemies = Color3.fromRGB(255,255,0),
+    RuntimeEntites = Color3.fromRGB(255,0,255),
+    RuntimeItems = Color3.fromRGB(0,255,0)
+}
+
+local function clearESP(folderName)
+    if espObjects[folderName] then
+        for obj, gui in pairs(espObjects[folderName]) do
+            if gui and gui.Parent then
+                gui:Destroy()
+            end
+        end
+    end
+    espObjects[folderName] = {}
+end
+
+local function createESP(obj, color, folderName)
+    if not obj:IsA("BasePart") then
+        local part = obj:FindFirstChildWhichIsA("BasePart")
+        if not part then return end
+        obj = part
+    end
+    if not obj:IsDescendantOf(workspace) then return end
+    local bb = Instance.new("BillboardGui")
+    bb.Adornee = obj
+    bb.Size = UDim2.new(0, 100, 0, 40)
+    bb.AlwaysOnTop = true
+    bb.Name = "ESP_BB"
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1,0,1,0)
+    label.BackgroundTransparency = 1
+    label.Text = obj.Parent.Name
+    label.TextColor3 = color
+    label.TextStrokeTransparency = 0.5
+    label.TextScaled = true
+    label.Parent = bb
+    bb.Parent = ScreenGui
+    espObjects[folderName][obj.Parent] = bb
+end
+
+local function addESPToFolder(folderName, obj)
+    if folderName == "RuntimeItems" and isModelName(obj.Name) then
+        return
+    end
+    local color = colorMap[folderName] or Color3.new(1,1,1)
+    createESP(obj, color, folderName)
+end
+
+local function removeESPFromFolder(folderName, obj)
+    if espObjects[folderName] and espObjects[folderName][obj] then
+        espObjects[folderName][obj]:Destroy()
+        espObjects[folderName][obj] = nil
+    end
+end
+
+local function setupFolderESP(folderName)
+    clearESP(folderName)
+    espObjects[folderName] = espObjects[folderName] or {}
+    local folder = workspace:FindFirstChild(folderName)
+    if not folder then return end
+
+    for _, obj in ipairs(folder:GetChildren()) do
+        addESPToFolder(folderName, obj)
+    end
+
+    -- Listen for new children
+    folder.ChildAdded:Connect(function(obj)
+        if toggles[folderName].enabled then
+            addESPToFolder(folderName, obj)
+        end
+    end)
+    folder.ChildRemoved:Connect(function(obj)
+        removeESPFromFolder(folderName, obj)
+    end)
+end
+
+-- UI Buttons
+local y = 40
+for _, folderName in ipairs(folders) do
+    local Toggle = Instance.new("TextButton")
+    Toggle.Size = UDim2.new(0, 200, 0, 30)
+    Toggle.Position = UDim2.new(0, 10, 0, y)
+    Toggle.Text = "ESP " .. folderName .. ": OFF"
+    Toggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    Toggle.TextColor3 = Color3.new(1,1,1)
+    Toggle.Font = Enum.Font.SourceSans
+    Toggle.TextScaled = true
+    Toggle.Parent = MainFrame
+    toggles[folderName] = {button = Toggle, enabled = false}
+    y = y + 35
+
+    Toggle.MouseButton1Click:Connect(function()
+        local data = toggles[folderName]
+        data.enabled = not data.enabled
+        Toggle.Text = "ESP " .. folderName .. ": " .. (data.enabled and "ON" or "OFF")
+        if data.enabled then
+            setupFolderESP(folderName)
+        else
+            clearESP(folderName)
+        end
+    end)
+end
